@@ -12,8 +12,7 @@
  *  and linux attaches to it with mmap().
  * 
  */
-#define SHARE_ALLOC_MEM_SIZE	0xC00000
-static char __attribute__((__section__(".core_share"))) buf[ SHARE_MEM_SIZE ];
+static char __attribute__((__section__(".core_share"))) buf[ SHARE_ALLOC_MEM_SIZE ];
 
 
  /* The following are provided by the linker script.
@@ -26,12 +25,12 @@ extern unsigned char * __core_sharesz; /*!< Trace buffer size (bytes) */
 
 static void traceLogInit();
 
-uintptr_t *coreShareGetMemoryBlock( uint32_t offset, int size )
+void *coreShareGetMemoryBlock( int offset, int size )
 {
     return( (void *)&buf[ offset ] );
 }
 
-void coreShareInit( int type )
+int coreShareInit( int type )
 {
 int i;
 volatile uintptr_t *ptr;
@@ -39,7 +38,7 @@ volatile uintptr_t *ptr;
     type = 0; /* Keep Compiler Quiet; under x86, this controls mmmap() ops. */
 
     ptr = (uintptr_t *)SHARE_ADDR;
-    for( i = 0; i < ((uintptr_t)BUFSZ / sizeof(uintptr_t)); i++ ) {
+    for( i = 0; i < ((uintptr_t)SHARE_SIZE / sizeof(uintptr_t)); i++ ) {
         *ptr++ = 0;
     }
 
@@ -53,7 +52,7 @@ static void  traceLogInit()
 {
 int i;
 
-    traceBufferPtr = (TRACE_LOG_DS *)coreShareGetMemoryBlock( TRACE_BUFFER_OFFSET, sizeof(TRACE_LOG_DS) );
+    traceBufferPtr = (TRACE_LOG_DS *)coreShareGetMemoryBlock( SHARE_TRACE_BUFFER_OFFSET, sizeof(TRACE_LOG_DS) );
 
     for( i = 0; i < NUM_TRACE_BUFFERS; i++ ) {
 	traceBufferPtr->traceLogEntryPtr[ i ] = &traceBufferPtr->traceLog[ i ];
