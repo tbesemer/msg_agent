@@ -5,29 +5,6 @@
 #include <core_share.h>
 
 
-#define SHARED_MSG_QUEUE_COUNT	512
-#define SHARED_MSG_QUEUE_SIZE	512
-
-typedef struct {
-
-    volatile int     head;
-    volatile int     tail;
-    volatile int     count;
-    volatile int     size;
-    volatile uint8_t *mcbBase;    /*  Message Control Buffers Base Address    */
-
-} SHARED_MSG_QUEUE_DS;
-
-typedef struct {
-
-    volatile SHARED_MSG_QUEUE_DS rxQueueCtl;    /* RX Queue, Client Side       */
-    volatile SHARED_MSG_QUEUE_DS txQueueCtl;    /* TX Queue, Client Side       */
-
-    volatile uint8_t  rxQueueAlloc[ (SHARED_MSG_QUEUE_SIZE * SHARED_MSG_QUEUE_COUNT) ];
-    volatile uint8_t  txQueueAlloc[ (SHARED_MSG_QUEUE_SIZE * SHARED_MSG_QUEUE_COUNT) ];
-
-} SHARED_MSG_QUEUE_MGR_DS;
-
 volatile static SHARED_MSG_QUEUE_MGR_DS *queueCtlManagerPtr = (SHARED_MSG_QUEUE_MGR_DS *)NULL;
 
 void coreShareInitMsgQueues()
@@ -37,19 +14,19 @@ void coreShareInitMsgQueues()
 
     queueCtlManagerPtr->rxQueueCtl.head = 0;
     queueCtlManagerPtr->rxQueueCtl.tail = 0;
-    queueCtlManagerPtr->rxQueueCtl.count = SHARED_MSG_QUEUE_COUNT;
+    queueCtlManagerPtr->rxQueueCtl.count = SHARED_MSG_RX_QUEUE_COUNT;
     queueCtlManagerPtr->rxQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
     queueCtlManagerPtr->rxQueueCtl.mcbBase = queueCtlManagerPtr->rxQueueAlloc;
 
     queueCtlManagerPtr->txQueueCtl.head = 0;
     queueCtlManagerPtr->txQueueCtl.tail = 0;
-    queueCtlManagerPtr->txQueueCtl.count = SHARED_MSG_QUEUE_COUNT;
+    queueCtlManagerPtr->txQueueCtl.count = SHARED_MSG_TX_QUEUE_COUNT;
     queueCtlManagerPtr->txQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
     queueCtlManagerPtr->txQueueCtl.mcbBase = queueCtlManagerPtr->txQueueAlloc;
 
 }
 
-static int coreShareWriteQueue( SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size )
+int coreShareWriteQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size )
 {
          int     tHead;
 volatile uint8_t *dstPtr;
@@ -92,7 +69,7 @@ volatile uint8_t *dstPtr;
 }
 
 
-static int coreShareReadQueue( SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size )
+int coreShareReadQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size )
 {
          int      tTail;
 volatile uint8_t *srcPtr;
@@ -131,4 +108,14 @@ volatile uint8_t *srcPtr;
 
 }
 
+
+volatile SHARED_MSG_QUEUE_DS *coreShareGetTxQueue()
+{
+    return( &queueCtlManagerPtr->txQueueCtl );
+}
+
+volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue()
+{
+    return( &queueCtlManagerPtr->rxQueueCtl );
+}
 

@@ -7,14 +7,47 @@
 #define uintptr_t uint32_t
 #endif
 
+
+#define SHARED_MSG_RX_QUEUE_COUNT	768
+#define SHARED_MSG_TX_QUEUE_COUNT	64
+#define SHARED_MSG_QUEUE_SIZE		512
+
+typedef struct {
+
+    volatile int     head;
+    volatile int     tail;
+    volatile int     count;
+    volatile int     size;
+    volatile uint8_t *mcbBase;    /*  Message Control Buffers Base Address    */
+
+} SHARED_MSG_QUEUE_DS;
+
+typedef struct {
+
+    volatile SHARED_MSG_QUEUE_DS rxQueueCtl;    /* RX Queue, Core 1 -> Core 0 */
+    volatile SHARED_MSG_QUEUE_DS txQueueCtl;    /* TX Queue, Core 0 -> Core 1 */
+
+    volatile uint8_t  rxQueueAlloc[ (SHARED_MSG_QUEUE_SIZE * SHARED_MSG_RX_QUEUE_COUNT) ];
+    volatile uint8_t  txQueueAlloc[ (SHARED_MSG_QUEUE_SIZE * SHARED_MSG_TX_QUEUE_COUNT) ];
+
+} SHARED_MSG_QUEUE_MGR_DS;
+
+
+
 extern int coreShareInit( int type );
 extern void *coreShareGetMemoryBlock( int offset, int size );
+extern volatile SHARED_MSG_QUEUE_DS *coreShareGetTxQueue();
+extern volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue();
+extern int coreShareWriteQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size );
+extern int coreShareReadQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size );
+
+
 
 /*  On FreeRTOS, SIZE/ADDR this must mache what is in <lscript.ld>
  *  MASK is used on Linux for mmap() operations.
  */
-#define SHARE_ALLOC_MEM_SIZE    0xC00000
-#define SHARE_ALLOC_MEM_ADDR    0xC00000
+#define SHARE_ALLOC_MEM_SIZE    0x100000
+#define SHARE_ALLOC_MEM_ADDR    0x700000
 #define SHARE_ALLOC_MEM_MASK	(SHARE_ALLOC_MEM_SIZE - 1)
 
 /*  Offsets in Shared Memory for key structures.
