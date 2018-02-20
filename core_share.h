@@ -19,6 +19,7 @@ typedef struct {
     volatile int     count;
     volatile int     size;
     volatile uint8_t *mcbBase;    /*  Message Control Buffers Base Address    */
+    volatile uint8_t *vmcbBase;   /*  Virtual Message Control Buffers Base Address    */
 
 } SHARED_MSG_QUEUE_DS;
 
@@ -34,13 +35,28 @@ typedef struct {
 
 
 
-extern int coreShareInit( int type );
 extern void *coreShareGetMemoryBlock( int offset, int size );
 extern volatile SHARED_MSG_QUEUE_DS *coreShareGetTxQueue();
 extern volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue();
 extern int coreShareWriteQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size );
 extern int coreShareReadQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size );
 
+/*  Depending on system type, we do different approaches to attaching memory,
+ *  such  as TLB mapping or mmmap().  During the call to coreShareInitSystem(),
+ *  we specify memory type.
+ */
+typedef enum {
+
+    SHARE_MEM_TYPE_FREERTOS = 1,
+    SHARE_MEM_TYPE_ARM_LINUX = 2,
+    SHARE_MEM_TYPE_X86_LINUX = 3,
+
+} SHARE_MEM_TYPES;
+
+extern SHARE_MEM_TYPES coreShareMemType;
+extern int coreShareInit( SHARE_MEM_TYPES type );
+extern void coreShareInitSystem( SHARE_MEM_TYPES type );
+extern void coreShareInitMsgQueues( SHARE_MEM_TYPES type );
 
 
 /*  On FreeRTOS, SIZE/ADDR this must mache what is in <lscript.ld>
@@ -76,6 +92,9 @@ typedef struct {
 
 } TRACE_LOG_DS;
 
+extern void traceLog( uint32_t programCounter, uint32_t userParam );
+extern void traceLogExit( uint32_t programCounter, uint32_t userParam );
+extern volatile TRACE_LOG_ENTRY_DS *getTraceEntry();
 
 
 #endif

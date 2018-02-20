@@ -30,19 +30,22 @@ void *coreShareGetMemoryBlock( int offset, int size )
     return( (void *)&buf[ offset ] );
 }
 
-int coreShareInit( int type )
+int coreShareInit( SHARE_MEM_TYPES type )
 {
 int i;
 volatile uintptr_t *ptr;
 
-    type = 0; /* Keep Compiler Quiet; under x86, this controls mmmap() ops. */
+printf( "coreShareInit(): Base Address= 0x%08X, type = %d\n", (int)SHARE_ADDR, type );
 
     ptr = (uintptr_t *)SHARE_ADDR;
     for( i = 0; i < ((uintptr_t)SHARE_SIZE / sizeof(uintptr_t)); i++ ) {
         *ptr++ = 0;
     }
 
+    /* Core 1, FreeRTOS Side initializes this, Core 0, Linux is Client.
+     */
     traceLogInit();
+    coreShareInitMsgQueues( type );
 
 }
 
@@ -70,15 +73,19 @@ volatile int head;
 
     head = traceBufferPtr->head;
     ptr = traceBufferPtr->traceLogEntryPtr[ head++ ];
+
+printf( "makeTraceEntry(): addr == 0x%08X, head = 0x%08X\n", (int)ptr, head );
+
+    read_global_tmr( &ptr->upperTimeStamp, &ptr->lowerTimeStamp );
+    ptr->programCounter = programCounter;
+    ptr->userParam = userParam;
+
     if( head == NUM_TRACE_BUFFERS ) {
 	traceBufferPtr->head = 0;
     } else {
 	traceBufferPtr->head = head;
     }
 
-    read_global_tmr( &ptr->upperTimeStamp, &ptr->lowerTimeStamp );
-    ptr->programCounter = programCounter;
-    ptr->userParam = userParam;
 }
 
 void traceLog( uint32_t programCounter, uint32_t userParam )

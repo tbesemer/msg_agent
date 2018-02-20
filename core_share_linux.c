@@ -24,7 +24,7 @@ void *coreShareGetMemoryBlock( int offset, int size )
     return( (void *)(sharedMemPtr + offset) );
 }
 
-static int coreLinuxMemAttach( int type )
+static int coreLinuxMemAttach( SHARE_MEM_TYPES type )
 {
 
     sharedMemFd = open("/dev/mem", O_RDWR | O_SYNC);
@@ -47,7 +47,7 @@ static int coreLinuxMemAttach( int type )
 }
 
 
-int coreShareInit( int type )
+int coreShareInit( SHARE_MEM_TYPES type )
 {
 
     if( coreLinuxMemAttach( type ) < 0 ) {
@@ -56,6 +56,7 @@ int coreShareInit( int type )
     }
 
     traceLogInit();
+    coreShareInitMsgQueues( type );
 
     return( 0 );
 }
@@ -67,4 +68,18 @@ static void  traceLogInit()
 
 }
 
+volatile TRACE_LOG_ENTRY_DS *getTraceEntry()
+{
+volatile TRACE_LOG_ENTRY_DS  *logEntry;
 
+    if( traceBufferPtr->head != traceBufferPtr->tail ) {
+        logEntry = &traceBufferPtr->traceLog[ traceBufferPtr->tail++ ];
+        if( traceBufferPtr->tail == NUM_TRACE_BUFFERS ) {
+            traceBufferPtr->tail = 0;
+        }
+	return( logEntry );
+    } else {
+        return( (TRACE_LOG_ENTRY_DS *)NULL );
+    } 
+
+}

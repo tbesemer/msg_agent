@@ -5,31 +5,58 @@
 #include <core_share.h>
 
 
+SHARE_MEM_TYPES coreShareMemType = 0;
+
 volatile static SHARED_MSG_QUEUE_MGR_DS *queueCtlManagerPtr = (SHARED_MSG_QUEUE_MGR_DS *)NULL;
 
-void coreShareInitMsgQueues()
+static void dumpQueueCtl( volatile SHARED_MSG_QUEUE_DS *msgQPtr )
 {
+    printf( "msgQPtr->head = %d\n", msgQPtr->head );
+    printf( "msgQPtr->tail = %d\n", msgQPtr->tail );
+    printf( "msgQPtr->count = %d\n", msgQPtr->count );
+    printf( "msgQPtr->size = %d\n", msgQPtr->size );
+    printf( "msgQPtr->mcbBase = 0x%08X\n", (int)msgQPtr->mcbBase );
+    printf( "msgQPtr->vmcbBase = 0x%08X\n", (int)msgQPtr->vmcbBase );
+}
+
+void coreShareInitMsgQueues( SHARE_MEM_TYPES type )
+{
+    coreShareMemType = type;
+
+    printf( "coreShareInitMsgQueues(): Called, type = %d\n", type );
 
     queueCtlManagerPtr = (SHARED_MSG_QUEUE_MGR_DS *)coreShareGetMemoryBlock( SHARE_MSG_SYSTEM_OFFSET, sizeof(SHARED_MSG_QUEUE_MGR_DS) );
 
-    queueCtlManagerPtr->rxQueueCtl.head = 0;
-    queueCtlManagerPtr->rxQueueCtl.tail = 0;
-    queueCtlManagerPtr->rxQueueCtl.count = SHARED_MSG_RX_QUEUE_COUNT;
-    queueCtlManagerPtr->rxQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
-    queueCtlManagerPtr->rxQueueCtl.mcbBase = queueCtlManagerPtr->rxQueueAlloc;
+    /*  FreeRTOS is master, it is responsble for setting up infrastructure relative
+     *  to BareMetal side.
+     */
+    if( type == SHARE_MEM_TYPE_FREERTOS ) {
+        queueCtlManagerPtr->rxQueueCtl.head = 0;
+        queueCtlManagerPtr->rxQueueCtl.tail = 0;
+        queueCtlManagerPtr->rxQueueCtl.count = SHARED_MSG_RX_QUEUE_COUNT;
+        queueCtlManagerPtr->rxQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
+        queueCtlManagerPtr->rxQueueCtl.mcbBase = queueCtlManagerPtr->rxQueueAlloc;
 
-    queueCtlManagerPtr->txQueueCtl.head = 0;
-    queueCtlManagerPtr->txQueueCtl.tail = 0;
-    queueCtlManagerPtr->txQueueCtl.count = SHARED_MSG_TX_QUEUE_COUNT;
-    queueCtlManagerPtr->txQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
-    queueCtlManagerPtr->txQueueCtl.mcbBase = queueCtlManagerPtr->txQueueAlloc;
+        queueCtlManagerPtr->txQueueCtl.head = 0;
+        queueCtlManagerPtr->txQueueCtl.tail = 0;
+        queueCtlManagerPtr->txQueueCtl.count = SHARED_MSG_TX_QUEUE_COUNT;
+        queueCtlManagerPtr->txQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
+        queueCtlManagerPtr->txQueueCtl.mcbBase = queueCtlManagerPtr->txQueueAlloc;
+    } else {
 
+	/* Virtual Message Control Block address, from Linux perspective.
+         */
+        queueCtlManagerPtr->rxQueueCtl.vmcbBase = queueCtlManagerPtr->rxQueueAlloc;
+        queueCtlManagerPtr->txQueueCtl.vmcbBase = queueCtlManagerPtr->txQueueAlloc;
+    }
 }
 
 int coreShareWriteQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr, int size )
 {
          int     tHead;
 volatile uint8_t *dstPtr;
+
+//printf( "coreShareWriteQueue(): called, size = %d\n", size );
 
     /*  We trust that somebody upstream made sure it will fit, but just to avoid
      *  corruption, ensure we fit.
@@ -46,6 +73,8 @@ volatile uint8_t *dstPtr;
 	tHead = 0;
     }
 
+//printf( "coreShareWriteQueue(): tHead = %d, msgQPtr->tail = %d\n", tHead, msgQPtr->tail );
+
     /*  Check to see if the Queue is full, simply return if we can't service
      *  the request - callers responsibilty to retry.
      */
@@ -57,12 +86,21 @@ volatile uint8_t *dstPtr;
      *  at msgQPtr->mcbBase, so a physical addressis formed based on entry index,
      *  with that index being what 'head' currently points to.
      */
-    dstPtr = &msgQPtr->mcbBase[ msgQPtr->head * msgQPtr->size ];
+    if( coreShareMemType == SHARE_MEM_TYPE_FREERTOS ) {
+        dstPtr = &msgQPtr->mcbBase[ msgQPtr->head * msgQPtr->size ];
+    } else {
+        dstPtr = &msgQPtr->vmcbBase[ msgQPtr->head * msgQPtr->size ];
+    }
+
+//printf( "coreShareWriteQueue(): dstPtr = 0x%08X\n", (int)dstPtr );
+
     memcpy( (void *)dstPtr, (void *)msgPtr, size );
 
     /*  Push the new index out, letting readers know new data is available.
      */
     msgQPtr->head = tHead;
+
+//    dumpQueueCtl( msgQPtr );
 
     return( 0 );
 
@@ -99,13 +137,19 @@ volatile uint8_t *srcPtr;
      *  at msgQPtr->mcbBase, so a physical addressis formed based on entry index,
      *  with that index being what 'head' currently points to.
      */
-    srcPtr = &msgQPtr->mcbBase[ msgQPtr->tail * msgQPtr->size ];
+    if( coreShareMemType == SHARE_MEM_TYPE_FREERTOS ) {
+        srcPtr = &msgQPtr->mcbBase[ msgQPtr->tail * msgQPtr->size ];
+    } else {
+        srcPtr = &msgQPtr->vmcbBase[ msgQPtr->tail * msgQPtr->size ];
+    }
+
     memcpy( (void *)msgPtr, (void *)srcPtr, size );
 
     /* Update tail to reflect we've read.
      */
     msgQPtr->tail = tTail;
 
+    return( 1 );
 }
 
 
@@ -119,3 +163,10 @@ volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue()
     return( &queueCtlManagerPtr->rxQueueCtl );
 }
 
+
+void coreShareInitSystem( SHARE_MEM_TYPES type )
+{
+    printf( "coreShareInitSystem(): Called\n" );
+    coreShareInit( type );
+
+}
