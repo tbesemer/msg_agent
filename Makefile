@@ -1,6 +1,6 @@
 
 X86_CFLAGS := -I./ -D__X86_TESTING__
-FREERTOS_CFLAGS := -I./ -D__FREERTOS__
+FREERTOS_CFLAGS := -I./ -D__FREERTOS__ -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp
 ARM_CFLAGS := -I./ -D__ARM__
 
 FREERTOS_CC := arm-none-eabi-gcc
