@@ -1,6 +1,6 @@
 
 X86_CFLAGS := -I./ -D__X86_TESTING__
-FREERTOS_CFLAGS := -I./ -D__FREERTOS__ -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=softfp
+FREERTOS_CFLAGS := -I./ -D__FREERTOS__ -mfpu=vfpv3 -mfloat-abi=hard
 ARM_CFLAGS := -I./ -D__ARM__
 
 FREERTOS_CC := arm-none-eabi-gcc
@@ -11,12 +11,12 @@ ARM_CC := arm-linux-gnueabihf-gcc
 ARM_AR := arm-linux-gnueabihf-ar
 ARM_RANLIB := arm-linux-gnueabihf-ranlib
 
-all: lib/sharefreertoslib.a lib/sharearmlib.a
+all: lib/libsharefreertos.a lib/sharearmlib.a
 
-.PHONY: lib/sharefreertoslib.a
-lib/sharefreertoslib.a: freertos_obj/core_share.o freertos_obj/core_share_freertos.o
-	${FREERTOS_AR} cr lib/sharefreertoslib.a freertos_obj/core_share.o freertos_obj/core_share_freertos.o
-	${FREERTOS_RANLIB} lib/sharefreertoslib.a
+.PHONY: lib/libsharefreertos.a
+lib/libsharefreertos.a: freertos_obj/core_share.o freertos_obj/core_share_freertos.o
+	${FREERTOS_AR} cr lib/libsharefreertos.a freertos_obj/core_share.o freertos_obj/core_share_freertos.o
+	${FREERTOS_RANLIB} lib/libsharefreertos.a
 
 .PHONY: freertos_obj/core_share.o
 freertos_obj/core_share.o: core_share.c core_share.h Makefile

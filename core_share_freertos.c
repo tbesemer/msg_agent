@@ -12,7 +12,7 @@
  *  and linux attaches to it with mmap().
  * 
  */
-static char __attribute__((__section__(".core_share"))) buf[ SHARE_ALLOC_MEM_SIZE ];
+static char __attribute__((__section__(".core_share"))) buf[ SHARE_ALLOC_FREERTOS_MEM_SIZE ];
 
 
  /* The following are provided by the linker script.
@@ -35,7 +35,7 @@ int coreShareInit( SHARE_MEM_TYPES type )
 int i;
 volatile uintptr_t *ptr;
 
-printf( "coreShareInit(): Base Address= 0x%08X, type = %d\n", (int)SHARE_ADDR, type );
+printf( "coreShareInit(): Base Address= 0x%08X, size = %d, type = %d\n", (int)SHARE_ADDR, SHARE_SIZE, type );
 
     ptr = (uintptr_t *)SHARE_ADDR;
     for( i = 0; i < ((uintptr_t)SHARE_SIZE / sizeof(uintptr_t)); i++ ) {
@@ -76,7 +76,7 @@ volatile int head;
 
 printf( "makeTraceEntry(): addr == 0x%08X, head = 0x%08X\n", (int)ptr, head );
 
-    read_global_tmr( &ptr->upperTimeStamp, &ptr->lowerTimeStamp );
+//    read_global_tmr( &ptr->upperTimeStamp, &ptr->lowerTimeStamp );
     ptr->programCounter = programCounter;
     ptr->userParam = userParam;
 

@@ -83,3 +83,13 @@ volatile TRACE_LOG_ENTRY_DS  *logEntry;
     } 
 
 }
+
+int coreShareReadBlock( char *blockPtr, int block, int blockSize )
+{
+void *tPtr;
+
+    tPtr = coreShareGetMemoryBlock( (block * blockSize), blockSize );
+    memcpy( (void *)blockPtr, tPtr, blockSize );
+
+}
+

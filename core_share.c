@@ -4,7 +4,6 @@
 #include <string.h>
 #include <core_share.h>
 
-#undef	DEBUG_MSGS
 
 SHARE_MEM_TYPES coreShareMemType = 0;
 
@@ -44,9 +43,17 @@ void coreShareInitMsgQueues( SHARE_MEM_TYPES type )
         queueCtlManagerPtr->txQueueCtl.size = SHARED_MSG_QUEUE_SIZE;
         queueCtlManagerPtr->txQueueCtl.mcbBase = queueCtlManagerPtr->txQueueAlloc;
 
-#ifdef	__FREERTOS__
-        Xil_DCacheFlushRange( (uint32_t)queueCtlManagerPtr, sizeof(SHARED_MSG_QUEUE_MGR_DS) );
-#endif
+        queueCtlManagerPtr->rxQueueCtl_10pps.head = 0;
+        queueCtlManagerPtr->rxQueueCtl_10pps.tail = 0;
+        queueCtlManagerPtr->rxQueueCtl_10pps.count = SHARED_MSG_RX_QUEUE_COUNT_10PPS;
+        queueCtlManagerPtr->rxQueueCtl_10pps.size = SHARED_MSG_QUEUE_SIZE_10PPS;
+        queueCtlManagerPtr->rxQueueCtl_10pps.mcbBase = queueCtlManagerPtr->rxQueueAlloc_10pps;
+
+        queueCtlManagerPtr->txQueueCtl_10pps.head = 0;
+        queueCtlManagerPtr->txQueueCtl_10pps.tail = 0;
+        queueCtlManagerPtr->txQueueCtl_10pps.count = SHARED_MSG_TX_QUEUE_COUNT_10PPS;
+        queueCtlManagerPtr->txQueueCtl_10pps.size = SHARED_MSG_QUEUE_SIZE_10PPS;
+        queueCtlManagerPtr->txQueueCtl_10pps.mcbBase = queueCtlManagerPtr->txQueueAlloc_10pps;
 
     } else {
 
@@ -54,6 +61,9 @@ void coreShareInitMsgQueues( SHARE_MEM_TYPES type )
          */
         queueCtlManagerPtr->rxQueueCtl.vmcbBase = queueCtlManagerPtr->rxQueueAlloc;
         queueCtlManagerPtr->txQueueCtl.vmcbBase = queueCtlManagerPtr->txQueueAlloc;
+
+        queueCtlManagerPtr->rxQueueCtl_10pps.vmcbBase = queueCtlManagerPtr->rxQueueAlloc_10pps;
+        queueCtlManagerPtr->txQueueCtl_10pps.vmcbBase = queueCtlManagerPtr->txQueueAlloc_10pps;
     }
 }
 
@@ -62,9 +72,7 @@ int coreShareWriteQueue( volatile SHARED_MSG_QUEUE_DS *msgQPtr, uint8_t *msgPtr,
          int     tHead;
 volatile uint8_t *dstPtr;
 
-#ifdef	DEBUG_MSGS
-    printf( "coreShareWriteQueue(): called, size = %d\n", size );
-#endif
+//printf( "coreShareWriteQueue(): called, size = %d\n", size );
 
     /*  We trust that somebody upstream made sure it will fit, but just to avoid
      *  corruption, ensure we fit.
@@ -81,9 +89,7 @@ volatile uint8_t *dstPtr;
 	tHead = 0;
     }
 
-#ifdef	DEBUG_MSGS
-    printf( "coreShareWriteQueue(): tHead = %d, msgQPtr->tail = %d\n", tHead, msgQPtr->tail );
-#endif
+//printf( "coreShareWriteQueue(): tHead = %d, msgQPtr->tail = %d\n", tHead, msgQPtr->tail );
 
     /*  Check to see if the Queue is full, simply return if we can't service
      *  the request - callers responsibilty to retry.
@@ -102,22 +108,15 @@ volatile uint8_t *dstPtr;
         dstPtr = &msgQPtr->vmcbBase[ msgQPtr->head * msgQPtr->size ];
     }
 
+//printf( "coreShareWriteQueue(): dstPtr = 0x%08X\n", (int)dstPtr );
+
     memcpy( (void *)dstPtr, (void *)msgPtr, size );
-#ifdef	__FREERTOS__
-    Xil_DCacheFlushRange( (uint32_t)dstPtr, size );
-#endif
 
     /*  Push the new index out, letting readers know new data is available.
      */
     msgQPtr->head = tHead;
-#ifdef	__FREERTOS__
-    Xil_DCacheFlushRange( (uint32_t)&msgQPtr->head, sizeof(msgQPtr->head) );
-#endif
 
-#ifdef	DEBUG_MSGS
-    dumpQueueCtl( msgQPtr );
-#endif
-
+//    dumpQueueCtl( msgQPtr );
 
     return( 0 );
 
@@ -138,9 +137,6 @@ volatile uint8_t *srcPtr;
 
     /*  See if we have anything, return if no data; callers responsibility to poll.
      */
-#ifdef	__FREERTOS__
-    Xil_DCacheInvalidateLine( (uint32_t)&msgQPtr->tail, sizeof(msgQPtr->tail) );
-#endif
     if( msgQPtr->tail == msgQPtr->head ) {
 	return( 0 );
     }
@@ -154,7 +150,7 @@ volatile uint8_t *srcPtr;
     }
 
     /*  Copy data.  The Queue Buffer are msgQPtr->size blocks starting
-     *  at msgQPtr->mcbBase, so a physical addressis formed based on entry index,
+     *  at msgQPtr->mcbBase, so a physical address is formed based on entry index,
      *  with that index being what 'head' currently points to.
      */
     if( coreShareMemType == SHARE_MEM_TYPE_FREERTOS ) {
@@ -163,17 +159,11 @@ volatile uint8_t *srcPtr;
         srcPtr = &msgQPtr->vmcbBase[ msgQPtr->tail * msgQPtr->size ];
     }
 
-#ifdef	__FREERTOS__
-    Xil_DCacheInvalidateLine( (uint32_t)srcPtr, size );
-#endif
     memcpy( (void *)msgPtr, (void *)srcPtr, size );
 
     /* Update tail to reflect we've read.
      */
     msgQPtr->tail = tTail;
-#ifdef	__FREERTOS__
-    Xil_DCacheFlushRange( (uint32_t)&msgQPtr->tail, sizeof(msgQPtr->tail) );
-#endif
 
     return( 1 );
 }
@@ -189,10 +179,32 @@ volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue()
     return( &queueCtlManagerPtr->rxQueueCtl );
 }
 
+volatile SHARED_MSG_QUEUE_DS *coreShareGetTxQueue_10pps()
+{
+    return( &queueCtlManagerPtr->txQueueCtl_10pps );
+}
+
+volatile SHARED_MSG_QUEUE_DS *coreShareGetRxQueue_10pps()
+{
+    return( &queueCtlManagerPtr->rxQueueCtl_10pps );
+}
+
+
 
 void coreShareInitSystem( SHARE_MEM_TYPES type )
 {
     printf( "coreShareInitSystem(): Called\n" );
     coreShareInit( type );
+
+}
+
+
+int core1ReadFromCore0( uint8_t *rxBuff )
+{
+
+}
+
+int core0WriteToCore1( uint8_t *txBuff )
+{
 
 }
